@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="appTitle">Fantasy Football Draft Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Earthy Neutral -->
+    <!-- Application Structure Plan: A tabbed dashboard interface ("Strategy", "Round Guide", "Player Watchlist") was chosen to break down the dense draft guide into manageable, task-oriented sections. This avoids overwhelming the user with a long scroll and allows them to focus on their current need (e.g., overall strategy vs. specific round picks). The interactive watchlist provides a quick, filterable reference to all potential targets, which is a significant usability improvement over scanning a text document. -->
+    <!-- Visualization & Content Choices: Report Info: Mid-draft focus -> Goal: Inform/Compare -> Viz: Donut Chart -> Interaction: Static visual -> Justification: Provides a quick visual summary of the recommended positional allocation, making the strategy easier to grasp at a glance. Library: Chart.js. Report Info: Player lists per round -> Goal: Organize/Inform -> Presentation: Interactive Cards in an Accordion -> Interaction: Click to highlight -> Justification: Cards are more visually appealing and scannable than text lists. Highlighting provides simple feedback for user's own tracking. Method: HTML/CSS/JS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F5F5DC; /* Beige */
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+        }
+        .nav-btn.active {
+            background-color: #8FBC8F; /* Dark Sea Green */
+            color: #FFFFFF;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .player-card {
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+        }
+        .player-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .player-card.selected {
+            border-color: #8FBC8F;
+            transform: scale(1.02);
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Fantasy Football Draft Assistant</h1>
+            <p id="subheading" class="text-lg md:text-xl text-gray-600 mt-2">14-Team Superflex</p>
+            <div class="mt-4">
+                <label for="draftPosition" class="text-sm font-semibold text-gray-700">Select your draft pick:</label>
+                <select id="draftPosition" class="ml-2 px-3 py-1 rounded-md bg-white border border-gray-300">
+                    <option value="1">Pick 1</option>
+                    <option value="2">Pick 2</option>
+                    <option value="3">Pick 3</option>
+                    <option value="4">Pick 4</option>
+                    <option value="5">Pick 5</option>
+                    <option value="6">Pick 6</option>
+                    <option value="7">Pick 7</option>
+                    <option value="8">Pick 8</option>
+                    <option value="9" selected>Pick 9</option>
+                    <option value="10">Pick 10</option>
+                    <option value="11">Pick 11</option>
+                    <option value="12">Pick 12</option>
+                    <option value="13">Pick 13</option>
+                    <option value="14">Pick 14</option>
+                </select>
+            </div>
+        </header>
+
+        <nav class="flex justify-center space-x-2 sm:space-x-4 mb-8 bg-white/60 p-2 rounded-xl shadow-sm backdrop-blur-sm sticky top-4 z-10">
+            <button id="nav-strategy" class="nav-btn active px-4 py-2 sm:px-6 sm:py-2.5 rounded-lg font-semibold text-gray-700 bg-gray-200">Core Strategy</button>
+            <button id="nav-guide" class="nav-btn px-4 py-2 sm:px-6 sm:py-2.5 rounded-lg font-semibold text-gray-700 bg-gray-200">Round Guide</button>
+            <button id="nav-watchlist" class="nav-btn px-4 py-2 sm:px-6 sm:py-2.5 rounded-lg font-semibold text-gray-700 bg-gray-200">Watchlist</button>
+        </nav>
+
+        <main>
+            <section id="content-strategy" class="content-section active">
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center">Core Strategy: Value Over Position</h2>
+                    <p id="strategy-intro" class="text-gray-600 text-center max-w-3xl mx-auto mb-6">
+                        At the 9th overall pick, the top-tier quarterbacks are likely gone. Instead of forcing a pick, the optimal strategy is to grab the best available player, regardless of position. This allows you to secure an elite difference-maker while other teams are scrambling for their second quarterback. Focus on building a strong core early and then target quarterbacks at the turn.
+                    </p>
+                    <div class="grid md:grid-cols-2 gap-6 mt-8">
+                        <div class="bg-beige-100 p-6 rounded-lg" style="background-color: #F5F5DC;">
+                            <h3 class="font-bold text-lg mb-2">Key Principles</h3>
+                            <ul id="principles-list" class="space-y-2 list-disc list-inside text-gray-700">
+                                <li><strong>Don't Panic on QBs:</strong> The value in rounds 2-3 for QBs is excellent. Secure an elite skill player first.</li>
+                                <li><strong>Work the Turn:</strong> Your picks at 2.20 and 3.33 are crucial. Plan to grab your QB1 and another top asset here.</li>
+                                <li><strong>Build WR Depth:</strong> The mid-rounds are rich with wide receiver talent. Capitalize on this while others reach for RBs.</li>
+                                <li><strong>Late-Round Upside:</strong> Focus on rookie QBs and high-potential handcuffs in the later rounds.</li>
+                            </ul>
+                        </div>
+                        <div class="bg-beige-100 p-6 rounded-lg" style="background-color: #F5F5DC;">
+                            <h3 class="font-bold text-lg mb-2 text-center">Mid-Draft Positional Focus</h3>
+                            <div class="chart-container">
+                                <canvas id="midDraftChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="content-guide" class="content-section">
+                <div id="guide-container" class="space-y-6"></div>
+            </section>
+
+            <section id="content-watchlist" class="content-section">
+                 <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center">Player Watchlist</h2>
+                    <div class="flex justify-center flex-wrap gap-2 mb-6">
+                        <button class="filter-btn active px-4 py-2 rounded-lg font-semibold bg-gray-200" data-pos="All">All</button>
+                        <button class="filter-btn px-4 py-2 rounded-lg font-semibold bg-gray-200" data-pos="QB">QB</button>
+                        <button class="filter-btn px-4 py-2 rounded-lg font-semibold bg-gray-200" data-pos="RB">RB</button>
+                        <button class="filter-btn px-4 py-2 rounded-lg font-semibold bg-gray-200" data-pos="WR">WR</button>
+                        <button class="filter-btn px-4 py-2 rounded-lg font-semibold bg-gray-200" data-pos="TE">TE</button>
+                    </div>
+                    <div id="watchlist-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const draftData = {
+            '1': {
+                pick: 1,
+                strategyIntro: "With the first overall pick, you have the choice of securing the league's top quarterback or its most elite skill position player. This is a crucial decision that will define your draft.",
+                principles: [
+                    "**Secure a Game-Changer:** Take the player you believe has the highest fantasy ceiling.",
+                    "**Capitalize on the Turn:** Your next pick isn't until 2.14, so you can wait on your second QB or RB/WR.",
+                    "**Build Position by Position:** After your first pick, focus on filling your other starting spots with high-upside players.",
+                    "**Don't Reach for a QB2:** Wait until a solid option falls to you in the mid-rounds."
+                ],
+                chartData: [20, 30, 40, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 1)",
+                        strategy: "You have your pick of the entire draft board. The most common picks are a top-tier QB or an elite RB/WR.",
+                        targets: [
+                            { name: "Josh Allen", pos: "QB", note: "The most consistent elite fantasy QB." },
+                            { name: "Justin Jefferson", pos: "WR", note: "Arguably the best receiver in football." },
+                            { name: "Christian McCaffrey", pos: "RB", note: "Elite producer with a very high floor." },
+                            { name: "Jahmyr Gibbs", pos: "RB", note: "High-volume, dual-threat back." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 28 & 29)",
+                        strategy: "At the turn, you'll be able to grab two great players that fell. Look to grab a solid RB/WR and possibly your second QB here.",
+                        targets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "High-volume, high-upside RB." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "Continue to build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Chris Olave", pos: "WR", note: "Primary target in his offense." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    }
+                ]
+            },
+            '2': {
+                pick: 2,
+                strategyIntro: "With the second pick, you're almost guaranteed to get one of the top three players on the board. Your strategy is simple: take the best player available and build around them.",
+                principles: [
+                    "**Take the Best Player:** Don't get cute. Secure a top-tier fantasy scorer.",
+                    "**Wait and See:** Your next pick isn't until 2.13, so you have time to see how the draft unfolds.",
+                    "**Build a Balanced Roster:** Focus on getting a strong RB/WR and a quality QB in the next few rounds.",
+                    "**Don't Overpay for QB2:** Avoid reaching for a QB in the early rounds if you can get a better value later."
+                ],
+                chartData: [20, 30, 40, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 2)",
+                        strategy: "You'll be able to get one of the top players left. This pick is a no-brainer, take the player you feel best about.",
+                        targets: [
+                            { name: "Lamar Jackson", pos: "QB", note: "Dual-threat with high rushing floor." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 27 & 30)",
+                        strategy: "At the turn, you'll be able to grab two great players that fell. Look to grab a solid RB/WR and possibly your second QB here.",
+                        targets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "High-volume, high-upside RB." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "Continue to build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Chris Olave", pos: "WR", note: "Primary target in his offense." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    }
+                ]
+            },
+            '3': {
+                pick: 3,
+                strategyIntro: "With the third pick, you're almost guaranteed to get one of the top three players on the board. Your strategy is simple: take the best player available and build around them.",
+                principles: [
+                    "**Take the Best Player:** Don't get cute. Secure a top-tier fantasy scorer.",
+                    "**Wait and See:** Your next pick isn't until 2.12, so you have time to see how the draft unfolds.",
+                    "**Build a Balanced Roster:** Focus on getting a strong RB/WR and a quality QB in the next few rounds.",
+                    "**Don't Overpay for QB2:** Avoid reaching for a QB in the early rounds if you can get a better value later."
+                ],
+                chartData: [20, 30, 40, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 3)",
+                        strategy: "You'll be able to get one of the top players left. This pick is a no-brainer, take the player you feel best about.",
+                        targets: [
+                            { name: "Lamar Jackson", pos: "QB", note: "Dual-threat with high rushing floor." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 26 & 31)",
+                        strategy: "At the turn, you'll be able to grab two great players that fell. Look to grab a solid RB/WR and possibly your second QB here.",
+                        targets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "High-volume, high-upside RB." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "Continue to build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Chris Olave", pos: "WR", note: "Primary target in his offense." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    }
+                ]
+            },
+            '4': {
+                pick: 4,
+                strategyIntro: "From the 4th pick, you have a great opportunity to get a top-tier QB or an elite skill player. This is a crucial decision that will define your draft.",
+                principles: [
+                    "**Secure a Game-Changer:** Take the player you believe has the highest fantasy ceiling.",
+                    "**Capitalize on the Turn:** Your next pick isn't until 2.11, so you can wait on your second QB or RB/WR.",
+                    "**Build Position by Position:** After your first pick, focus on filling your other starting spots with high-upside players.",
+                    "**Don't Reach for a QB2:** Wait until a solid option falls to you in the mid-rounds."
+                ],
+                chartData: [25, 30, 35, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 4)",
+                        strategy: "You'll be able to get one of the top players left. This pick is a no-brainer, take the player you feel best about.",
+                        targets: [
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." },
+                            { name: "Joe Burrow", pos: "QB", note: "Elite passer, stable offense." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Justin Jefferson", pos: "WR", note: "Arguably the best WR in football." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 25 & 32)",
+                        strategy: "At the turn, you'll be able to grab two great players that fell. Look to grab a solid RB/WR and possibly your second QB here.",
+                        targets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "High-volume, high-upside RB." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "Continue to build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Chris Olave", pos: "WR", note: "Primary target in his offense." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    }
+                ]
+            },
+            '5': {
+                pick: 5,
+                strategyIntro: "From the 5th spot, you can secure one top-tier QB to anchor your team or pivot to a top-tier skill position player. This puts you in a great position to build a dominant roster.",
+                principles: [
+                    "**Secure a Top-Tier QB:** Your primary goal is to get a set-and-forget stud at a position of scarcity.",
+                    "**Or Pivot to Elite Talent:** If top QBs are gone, take the best available non-QB talent.",
+                    "**Capitalize on the Turn:** Use your picks at 2.24 and 3.33 to balance your roster and fill key positions.",
+                    "**Focus on Upside:** Look for players who could have a breakout season in the mid-to-late rounds."
+                ],
+                chartData: [25, 30, 35, 10], // WR, RB, QB, TE
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 5)",
+                        strategy: "You are in a great position to grab an elite QB or a true superstar at a different position. The key is to secure one of the elite few.",
+                        targets: [
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." },
+                            { name: "Joe Burrow", pos: "QB", note: "Elite passer, stable offense." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Justin Jefferson", pos: "WR", note: "Arguably the best WR in football." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 24 & 33)",
+                        strategy: "At the turn, you can either grab your QB2 and a top-tier flex player, or double down on skill positions if you drafted a QB in Round 1.",
+                        qbTargets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Caleb Williams", pos: "QB", note: "Rookie with immense potential." }
+                        ],
+                        flexTargets: [
+                            { name: "Derrick Henry", pos: "RB", note: "Touchdown-dependent but elite." },
+                            { name: "De'Von Achane", pos: "RB", note: "Explosive, big-play ability." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "This is where you build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." },
+                            { name: "Brock Bowers", pos: "TE", note: "Generational TE prospect." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '6': {
+                pick: 6,
+                strategyIntro: "From the 6th spot, you are in a great position to secure one of the last remaining top-tier quarterbacks or an elite skill player. Your strategy should be to get a cornerstone piece and then build from there.",
+                principles: [
+                    "**Take the Best Player:** Don't get cute. Secure a top-tier fantasy scorer.",
+                    "**Capitalize on the Turn:** Your next pick isn't until 2.19, so you have time to see how the draft unfolds.",
+                    "**Build a Balanced Roster:** Focus on getting a strong RB/WR and a quality QB in the next few rounds.",
+                    "**Don't Overpay for QB2:** Avoid reaching for a QB in the early rounds if you can get a better value later."
+                ],
+                chartData: [25, 30, 35, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 6)",
+                        strategy: "You'll be able to get one of the top players left. This pick is a no-brainer, take the player you feel best about.",
+                        targets: [
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." },
+                            { name: "Joe Burrow", pos: "QB", note: "Elite passer, stable offense." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Justin Jefferson", pos: "WR", note: "Arguably the best WR in football." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 23 & 34)",
+                        strategy: "At the turn, you can either grab your QB2 and a top-tier flex player, or double down on skill positions if you drafted a QB in Round 1.",
+                        qbTargets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Caleb Williams", pos: "QB", note: "Rookie with immense potential." }
+                        ],
+                        flexTargets: [
+                            { name: "Derrick Henry", pos: "RB", note: "Touchdown-dependent but elite." },
+                            { name: "De'Von Achane", pos: "RB", note: "Explosive, big-play ability." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "This is where you build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." },
+                            { name: "Brock Bowers", pos: "TE", note: "Generational TE prospect." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '7': {
+                pick: 7,
+                strategyIntro: "From the 7th spot, you are in a great position to secure one of the last remaining top-tier quarterbacks or an elite skill player. Your strategy should be to get a cornerstone piece and then build from there.",
+                principles: [
+                    "**Take the Best Player:** Don't get cute. Secure a top-tier fantasy scorer.",
+                    "**Capitalize on the Turn:** Your next pick isn't until 2.18, so you have time to see how the draft unfolds.",
+                    "**Build a Balanced Roster:** Focus on getting a strong RB/WR and a quality QB in the next few rounds.",
+                    "**Don't Overpay for QB2:** Avoid reaching for a QB in the early rounds if you can get a better value later."
+                ],
+                chartData: [30, 30, 30, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 7)",
+                        strategy: "You'll be able to get one of the top players left. This pick is a no-brainer, take the player you feel best about.",
+                        targets: [
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." },
+                            { name: "Joe Burrow", pos: "QB", note: "Elite passer, stable offense." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Justin Jefferson", pos: "WR", note: "Arguably the best WR in football." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 22 & 35)",
+                        strategy: "At the turn, you can either grab your QB2 and a top-tier flex player, or double down on skill positions if you drafted a QB in Round 1.",
+                        qbTargets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Caleb Williams", pos: "QB", note: "Rookie with immense potential." }
+                        ],
+                        flexTargets: [
+                            { name: "Derrick Henry", pos: "RB", note: "Touchdown-dependent but elite." },
+                            { name: "De'Von Achane", pos: "RB", note: "Explosive, big-play ability." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "This is where you build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." },
+                            { name: "Brock Bowers", pos: "TE", note: "Generational TE prospect." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '8': {
+                pick: 8,
+                strategyIntro: "From the 8th spot, you are in a great position to secure one of the last remaining top-tier quarterbacks or an elite skill player. Your strategy should be to get a cornerstone piece and then build from there.",
+                principles: [
+                    "**Take the Best Player:** Don't get cute. Secure a top-tier fantasy scorer.",
+                    "**Capitalize on the Turn:** Your next pick isn't until 2.17, so you have time to see how the draft unfolds.",
+                    "**Build a Balanced Roster:** Focus on getting a strong RB/WR and a quality QB in the next few rounds.",
+                    "**Don't Overpay for QB2:** Avoid reaching for a QB in the early rounds if you can get a better value later."
+                ],
+                chartData: [30, 30, 30, 10],
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 8)",
+                        strategy: "You'll be able to get one of the top players left. This pick is a no-brainer, take the player you feel best about.",
+                        targets: [
+                            { name: "Jalen Hurts", pos: "QB", note: "Dual-threat with a high floor." },
+                            { name: "Joe Burrow", pos: "QB", note: "Elite passer, stable offense." },
+                            { name: "Ja'Marr Chase", pos: "WR", note: "Top-tier WR with massive upside." },
+                            { name: "Bijan Robinson", pos: "RB", note: "Elite talent and usage." },
+                            { name: "Justin Jefferson", pos: "WR", note: "Arguably the best WR in football." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 21 & 36)",
+                        strategy: "At the turn, you can either grab your QB2 and a top-tier flex player, or double down on skill positions if you drafted a QB in Round 1.",
+                        qbTargets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Caleb Williams", pos: "QB", note: "Rookie with immense potential." }
+                        ],
+                        flexTargets: [
+                            { name: "Derrick Henry", pos: "RB", note: "Touchdown-dependent but elite." },
+                            { name: "De'Von Achane", pos: "RB", note: "Explosive, big-play ability." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "This is where you build depth and look for value. Secure your QB2 if you haven't yet and fill out your starting lineup with reliable options.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." },
+                            { name: "Brock Bowers", pos: "TE", note: "Generational TE prospect." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '9': {
+                pick: 9,
+                strategyIntro: "At the 9th overall pick, the top-tier quarterbacks are likely gone. Instead of forcing a pick, the optimal strategy is to grab the best available player, regardless of position. This allows you to secure an elite difference-maker while other teams are scrambling for their second quarterback. Focus on building a strong core early and then target quarterbacks at the turn.",
+                principles: [
+                    "**Don't Panic on QBs:** The value in rounds 2-3 for QBs is excellent. Secure an elite skill player first.",
+                    "**Work the Turn:** Your picks at 2.20 and 3.33 are crucial. Plan to grab your QB1 and another top asset here.",
+                    "**Build WR Depth:** The mid-rounds are rich with wide receiver talent. Capitalize on this while others reach for RBs.",
+                    "**Late-Round Upside:** Focus on rookie QBs and high-potential handcuffs in the later rounds."
+                ],
+                chartData: [40, 30, 20, 10], // WR, RB, QB, TE
+                rounds: [
+                    {
+                        title: "Round 1 (Pick 9)",
+                        strategy: "You are in a prime spot to get a top-tier skill position player who could be the RB1 or WR1 of the season. Grab the best available talent.",
+                        targets: [
+                            { name: "Jahmyr Gibbs", pos: "RB", note: "Elite dual-threat potential." },
+                            { name: "Saquon Barkley", pos: "RB", note: "Workhorse back in a great offense." },
+                            { name: "CeeDee Lamb", pos: "WR", note: "Target monster and top-3 WR." },
+                            { name: "Puka Nacua", pos: "WR", note: "High-volume receiver with huge upside." }
+                        ],
+                        alternatives: [
+                            { name: "Patrick Mahomes", pos: "QB", note: "If he falls, he's a must-draft." },
+                            { name: "Joe Burrow", pos: "QB", note: "Elite passer, great value if available." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 2 & 3 (Picks 20 & 33)",
+                        strategy: "This is your crucial two-pick swing. Secure your QB1 and another strong flex player. If you took a QB in round 1, load up on skill positions.",
+                        qbTargets: [
+                            { name: "Dak Prescott", pos: "QB", note: "Consistent top-10 production." },
+                            { name: "Justin Herbert", pos: "QB", note: "High ceiling with a great arm." },
+                            { name: "Caleb Williams", pos: "QB", note: "Rookie with immense potential." },
+                            { name: "Brock Purdy", pos: "QB", note: "Efficient QB in a top offense." }
+                        ],
+                        flexTargets: [
+                            { name: "Derrick Henry", pos: "RB", note: "Touchdown-dependent but elite." },
+                            { name: "De'Von Achane", pos: "RB", note: "Explosive, big-play ability." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "High-volume, high-upside RB." },
+                            { name: "Jaylen Waddle", pos: "WR", note: "Elite speed and route running." },
+                            { name: "Chris Olave", pos: "WR", note: "Primary target in his offense." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 4-8)",
+                        strategy: "Build depth and look for value. Secure your QB2 if you haven't yet. This is a great range to find starting WRs and high-upside RBs.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Great QB2 with stacking potential." },
+                            { name: "Trevor Lawrence", pos: "QB", note: "Post-hype sleeper with upside." },
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "Zay Flowers", pos: "WR", note: "Dynamic and explosive WR." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." },
+                            { name: "Brock Bowers", pos: "TE", note: "Generational TE prospect." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '10': {
+                pick: 10,
+                strategyIntro: "From the 10th spot, the key is to be reactive to the draft and capitalize on what the teams ahead of you do. You'll likely see a run on top quarterbacks and possibly some elite skill players.",
+                principles: [
+                    "**Embrace the Late Pick:** Your picks at 1.10 and 2.19 are close together, giving you great control over the board.",
+                    "**Capitalize on Runs:** When other teams take a position, pivot to another to get great value.",
+                    "**Build WR Depth:** The mid-rounds are rich with wide receiver talent. Capitalize on this while others reach for RBs.",
+                    "**Be Flexible:** Your strategy will be heavily influenced by what the 13 other teams do before you."
+                ],
+                chartData: [40, 30, 20, 10],
+                rounds: [
+                    {
+                        title: "Round 1 & 2 (Picks 10 & 19)",
+                        strategy: "The turn is your biggest advantage. You can grab two of the best players remaining to anchor your team, potentially getting a late-first-round value and an early-second-round steal.",
+                        targets: [
+                            { name: "Patrick Mahomes", pos: "QB", note: "Top-tier passer with great weapons." },
+                            { name: "Kyler Murray", pos: "QB", note: "Rushing upside and a pass-heavy attack." },
+                            { name: "CeeDee Lamb", pos: "WR", note: "A potential top-3 WR who could fall." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." },
+                            { name: "Christian McCaffrey", pos: "RB", note: "If he falls here, he's a no-brainer." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "Top-end talent at a solid value." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 3 & 4 (Picks 38 & 39)",
+                        strategy: "This is a great spot to secure your second QB or grab a high-upside running back or a proven wide receiver. The draft may have a run on QBs at this point, so you can adapt your strategy based on that.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Trevor Lawrence", pos: "QB", note: "Post-hype sleeper with upside." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 5-8)",
+                        strategy: "Continue to build depth and target players who offer a high ceiling. Look for players who could be the top option on their team or have a defined role.",
+                        targets: [
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "Zay Flowers", pos: "WR", note: "Dynamic and explosive WR." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '11': {
+                pick: 11,
+                strategyIntro: "From the 11th spot, the key is to be reactive to the draft and capitalize on what the teams ahead of you do. You'll likely see a run on top quarterbacks and possibly some elite skill players.",
+                principles: [
+                    "**Embrace the Late Pick:** Your picks at 1.11 and 2.18 are close together, giving you great control over the board.",
+                    "**Capitalize on Runs:** When other teams take a position, pivot to another to get great value.",
+                    "**Build WR Depth:** The mid-rounds are rich with wide receiver talent. Capitalize on this while others reach for RBs.",
+                    "**Be Flexible:** Your strategy will be heavily influenced by what the 13 other teams do before you."
+                ],
+                chartData: [40, 30, 20, 10],
+                rounds: [
+                    {
+                        title: "Round 1 & 2 (Picks 11 & 18)",
+                        strategy: "The turn is your biggest advantage. You can grab two of the best players remaining to anchor your team, potentially getting a late-first-round value and an early-second-round steal.",
+                        targets: [
+                            { name: "Patrick Mahomes", pos: "QB", note: "Top-tier passer with great weapons." },
+                            { name: "Kyler Murray", pos: "QB", note: "Rushing upside and a pass-heavy attack." },
+                            { name: "CeeDee Lamb", pos: "WR", note: "A potential top-3 WR who could fall." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." },
+                            { name: "Christian McCaffrey", pos: "RB", note: "If he falls here, he's a no-brainer." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "Top-end talent at a solid value." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 3 & 4 (Picks 40 & 41)",
+                        strategy: "This is a great spot to secure your second QB or grab a high-upside running back or a proven wide receiver. The draft may have a run on QBs at this point, so you can adapt your strategy based on that.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Trevor Lawrence", pos: "QB", note: "Post-hype sleeper with upside." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 5-8)",
+                        strategy: "Continue to build depth and target players who offer a high ceiling. Look for players who could be the top option on their team or have a defined role.",
+                        targets: [
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "Zay Flowers", pos: "WR", note: "Dynamic and explosive WR." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '12': {
+                pick: 12,
+                strategyIntro: "From the 12th spot, the key is to be reactive to the draft and capitalize on what the teams ahead of you do. You'll likely see a run on top quarterbacks and possibly some elite skill players.",
+                principles: [
+                    "**Embrace the Late Pick:** Your picks at 1.12 and 2.17 are close together, giving you great control over the board.",
+                    "**Capitalize on Runs:** When other teams take a position, pivot to another to get great value.",
+                    "**Build WR Depth:** The mid-rounds are rich with wide receiver talent. Capitalize on this while others reach for RBs.",
+                    "**Be Flexible:** Your strategy will be heavily influenced by what the 13 other teams do before you."
+                ],
+                chartData: [40, 30, 20, 10],
+                rounds: [
+                    {
+                        title: "Round 1 & 2 (Picks 12 & 17)",
+                        strategy: "The turn is your biggest advantage. You can grab two of the best players remaining to anchor your team, potentially getting a late-first-round value and an early-second-round steal.",
+                        targets: [
+                            { name: "Patrick Mahomes", pos: "QB", note: "Top-tier passer with great weapons." },
+                            { name: "Kyler Murray", pos: "QB", note: "Rushing upside and a pass-heavy attack." },
+                            { name: "CeeDee Lamb", pos: "WR", note: "A potential top-3 WR who could fall." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." },
+                            { name: "Christian McCaffrey", pos: "RB", note: "If he falls here, he's a no-brainer." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "Top-end talent at a solid value." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 3 & 4 (Picks 44 & 45)",
+                        strategy: "This is a great spot to secure your second QB or grab a high-upside running back or a proven wide receiver. The draft may have a run on QBs at this point, so you can adapt your strategy based on that.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Trevor Lawrence", pos: "QB", note: "Post-hype sleeper with upside." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 5-8)",
+                        strategy: "Continue to build depth and target players who offer a high ceiling. Look for players who could be the top option on their team or have a defined role.",
+                        targets: [
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "Zay Flowers", pos: "WR", note: "Dynamic and explosive WR." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '13': {
+                pick: 13,
+                strategyIntro: "Drafting from the end of the first round in a 14-team league can be a challenge, but it also gives you a unique opportunity. You can choose to go with an elite skill position player or one of the last remaining top-tier quarterbacks. Your strategy here is to secure one cornerstone piece and then build on that with your next picks.",
+                principles: [
+                    "**Embrace the Late Pick:** Your picks at 1.13 and 2.16 are close together, giving you great control over the board.",
+                    "**Consider a 'Zero QB' Start:** You can let others reach for quarterbacks and instead dominate the skill positions, then target a QB in the mid-rounds.",
+                    "**Balance Your Roster:** Make sure you don't neglect any single position early on, especially QB in a Superflex league.",
+                    "**Be Flexible:** Your strategy will be heavily influenced by what the 13 other teams do before you."
+                ],
+                chartData: [35, 30, 25, 10], // WR, RB, QB, TE
+                rounds: [
+                    {
+                        title: "Round 1 & 2 (Picks 13 & 16)",
+                        strategy: "The turn is your biggest advantage. You can grab two of the best players remaining to anchor your team, potentially getting a late-first-round value and an early-second-round steal.",
+                        targets: [
+                            { name: "Patrick Mahomes", pos: "QB", note: "Top-tier passer with great weapons." },
+                            { name: "Kyler Murray", pos: "QB", note: "Rushing upside and a pass-heavy attack." },
+                            { name: "CeeDee Lamb", pos: "WR", note: "A potential top-3 WR who could fall." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." },
+                            { name: "Christian McCaffrey", pos: "RB", note: "If he falls here, he's a no-brainer." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "Top-end talent at a solid value." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 3 & 4 (Picks 40 & 41)",
+                        strategy: "This is a great spot to secure your second QB or grab a high-upside running back or a proven wide receiver. The draft may have a run on QBs at this point, so you can adapt your strategy based on that.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Trevor Lawrence", pos: "QB", note: "Post-hype sleeper with upside." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 5-8)",
+                        strategy: "Continue to build depth and target players who offer a high ceiling. Look for players who could be the top option on their team or have a defined role.",
+                        targets: [
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "Zay Flowers", pos: "WR", note: "Dynamic and explosive WR." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            },
+            '14': {
+                pick: 14,
+                strategyIntro: "Drafting from the end of the first round in a 14-team league can be a challenge, but it also gives you a unique opportunity. You can choose to go with an elite skill position player or one of the last remaining top-tier quarterbacks. Your strategy here is to secure one cornerstone piece and then build on that with your next picks.",
+                principles: [
+                    "**Embrace the Late Pick:** Your picks at 1.14 and 2.15 are close together, giving you great control over the board.",
+                    "**Consider a 'Zero QB' Start:** You can let others reach for quarterbacks and instead dominate the skill positions, then target a QB in the mid-rounds.",
+                    "**Balance Your Roster:** Make sure you don't neglect any single position early on, especially QB in a Superflex league.",
+                    "**Be Flexible:** Your strategy will be heavily influenced by what the 13 other teams do before you."
+                ],
+                chartData: [35, 30, 25, 10], // WR, RB, QB, TE
+                rounds: [
+                    {
+                        title: "Round 1 & 2 (Picks 14 & 15)",
+                        strategy: "The turn is your biggest advantage. You can grab two of the best players remaining to anchor your team, potentially getting a late-first-round value and an early-second-round steal.",
+                        targets: [
+                            { name: "Patrick Mahomes", pos: "QB", note: "Top-tier passer with great weapons." },
+                            { name: "Kyler Murray", pos: "QB", note: "Rushing upside and a pass-heavy attack." },
+                            { name: "CeeDee Lamb", pos: "WR", note: "A potential top-3 WR who could fall." },
+                            { name: "Amon-Ra St. Brown", pos: "WR", note: "PPR machine with a safe floor." },
+                            { name: "Christian McCaffrey", pos: "RB", note: "If he falls here, he's a no-brainer." },
+                            { name: "Jonathan Taylor", pos: "RB", note: "Top-end talent at a solid value." }
+                        ]
+                    },
+                    {
+                        title: "Rounds 3 & 4 (Picks 42 & 43)",
+                        strategy: "This is a great spot to secure your second QB or grab a high-upside running back or a proven wide receiver. The draft may have a run on QBs at this point, so you can adapt your strategy based on that.",
+                        targets: [
+                            { name: "Tua Tagovailoa", pos: "QB", note: "Solid QB2 with stacking potential." },
+                            { name: "Trevor Lawrence", pos: "QB", note: "Post-hype sleeper with upside." },
+                            { name: "Isiah Pacheco", pos: "RB", note: "Lead back in a top offense." },
+                            { name: "Breece Hall", pos: "RB", note: "Elite talent, could be a league-winner." },
+                            { name: "Drake London", pos: "WR", note: "True alpha WR1 potential." },
+                            { name: "Nico Collins", pos: "WR", note: "Breakout star with a top QB." }
+                        ]
+                    },
+                    {
+                        title: "Mid-Draft (Rounds 5-8)",
+                        strategy: "Continue to build depth and target players who offer a high ceiling. Look for players who could be the top option on their team or have a defined role.",
+                        targets: [
+                            { name: "Jordan Love", pos: "QB", note: "Young QB with a strong arm." },
+                            { name: "Alvin Kamara", pos: "RB", note: "PPR value, still a solid RB2." },
+                            { name: "Jayden Reed", pos: "WR", note: "Versatile playmaker." },
+                            { name: "Stefon Diggs", pos: "WR", note: "Volume is still king." },
+                            { name: "Zay Flowers", pos: "WR", note: "Dynamic and explosive WR." },
+                            { name: "George Kittle", pos: "TE", note: "Elite TE with huge weekly upside." }
+                        ]
+                    },
+                    {
+                        title: "Late-Draft (Rounds 9+)",
+                        strategy: "Focus on high-upside players, potential handcuffs, and undervalued rookies. This is where you can find league-winning lottery tickets.",
+                        targets: [
+                            { name: "Jayden Daniels", pos: "QB", note: "Rookie QB with elite rushing upside." },
+                            { name: "Antonio Gibson", pos: "RB", note: "Potential for a large role." },
+                            { name: "Tank Dell", pos: "WR", note: "Big play potential in a great offense." },
+                            { name: "Pat Freiermuth", pos: "TE", note: "Solid TE with red zone potential." }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        let myChart;
+
+        function populateAllPlayers(pick) {
+            const playerSet = new Map();
+            const selectedDraftData = draftData[pick];
+            selectedDraftData.rounds.forEach(round => {
+                ['targets', 'alternatives', 'qbTargets', 'flexTargets'].forEach(key => {
+                    if (round[key]) {
+                        round[key].forEach(player => {
+                            if (!playerSet.has(player.name)) {
+                                playerSet.set(player.name, player);
+                            }
+                        });
+                    }
+                });
+            });
+            return Array.from(playerSet.values());
+        }
+
+        function createPlayerCard(player) {
+            const posColor = {
+                QB: 'bg-red-100 text-red-800',
+                RB: 'bg-blue-100 text-blue-800',
+                WR: 'bg-green-100 text-green-800',
+                TE: 'bg-yellow-100 text-yellow-800'
+            };
+            return `
+                <div class="player-card bg-white p-3 rounded-lg shadow-md cursor-pointer flex flex-col justify-between" data-name="${player.name}">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <h4 class="font-bold text-sm">${player.name}</h4>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${posColor[player.pos] || ''}">${player.pos}</span>
+                        </div>
+                        <p class="text-xs text-gray-500">${player.note || ''}</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderGuide(pick) {
+            const container = document.getElementById('guide-container');
+            const selectedDraftData = draftData[pick];
+            let html = '';
+            selectedDraftData.rounds.forEach(round => {
+                html += `
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-xl font-bold mb-3">${round.title}</h3>
+                        <p class="text-gray-600 mb-4">${round.strategy}</p>
+                `;
+
+                if (round.targets) {
+                    html += `<h4 class="font-semibold mb-2 text-gray-800">Primary Targets</h4><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">` + round.targets.map(createPlayerCard).join('') + `</div>`;
+                }
+                if (round.alternatives) {
+                    html += `<h4 class="font-semibold mt-4 mb-2 text-gray-800">Alternative Targets</h4><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">` + round.alternatives.map(createPlayerCard).join('') + `</div>`;
+                }
+                if (round.qbTargets) {
+                    html += `<h4 class="font-semibold mt-4 mb-2 text-gray-800">QB Targets</h4><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">` + round.qbTargets.map(createPlayerCard).join('') + `</div>`;
+                }
+                if (round.flexTargets) {
+                    html += `<h4 class="font-semibold mt-4 mb-2 text-gray-800">Flex Targets</h4><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">` + round.flexTargets.map(createPlayerCard).join('') + `</div>`;
+                }
+                
+                html += `</div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderWatchlist(pick, filter = 'All') {
+            const grid = document.getElementById('watchlist-grid');
+            const allPlayers = populateAllPlayers(pick);
+            const filteredPlayers = filter === 'All' 
+                ? allPlayers 
+                : allPlayers.filter(p => p.pos === filter);
+            
+            grid.innerHTML = filteredPlayers.map(createPlayerCard).join('');
+        }
+
+        function setupNavigation() {
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    navButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    const targetId = button.id.replace('nav-', 'content-');
+                    contentSections.forEach(section => {
+                        section.classList.remove('active');
+                        if (section.id === targetId) {
+                            section.classList.add('active');
+                        }
+                    });
+                });
+            });
+        }
+        
+        function setupFiltering(pick) {
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            filterButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    renderWatchlist(pick, button.dataset.pos);
+                });
+            });
+        }
+
+        function setupCardInteraction() {
+            document.body.addEventListener('click', function(event) {
+                const card = event.target.closest('.player-card');
+                if (card) {
+                    card.classList.toggle('selected');
+                }
+            });
+        }
+
+        function renderChart(pick) {
+            const ctx = document.getElementById('midDraftChart').getContext('2d');
+            const selectedChartData = draftData[pick].chartData;
+
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Wide Receiver', 'Running Back', 'Quarterback', 'Tight End'],
+                    datasets: [{
+                        label: 'Positional Focus',
+                        data: selectedChartData,
+                        backgroundColor: [
+                            'rgba(107, 114, 128, 0.7)', // Gray
+                            'rgba(59, 130, 246, 0.7)',  // Blue
+                            'rgba(239, 68, 68, 0.7)',   // Red
+                            'rgba(245, 158, 11, 0.7)'  // Yellow
+                        ],
+                        borderColor: [
+                            'rgba(107, 114, 128, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                            text: 'Mid-Draft Positional Focus'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateUI(pick) {
+            const selectedDraftData = draftData[pick];
+            document.getElementById('subheading').innerText = `14-Team Superflex • Pick ${pick}`;
+            document.getElementById('strategy-intro').innerText = selectedDraftData.strategyIntro;
+            document.getElementById('principles-list').innerHTML = selectedDraftData.principles.map(p => `<li>${p}</li>`).join('');
+            renderChart(pick);
+            renderGuide(pick);
+            renderWatchlist(pick);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const draftPositionSelect = document.getElementById('draftPosition');
+            draftPositionSelect.addEventListener('change', (event) => {
+                const pick = event.target.value;
+                updateUI(pick);
+            });
+
+            setupNavigation();
+            setupFiltering();
+            setupCardInteraction();
+            updateUI(draftPositionSelect.value);
+        });
+    </script>
+</body>
+</html>
