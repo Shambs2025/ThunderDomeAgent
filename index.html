@@ -488,4 +488,51 @@
                         ],
                         borderWidth: 1
                     }]
-               
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                            text: 'Mid-Draft Positional Focus'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateUI() {
+            const leagueSize = document.getElementById('leagueSize').value;
+            const scoringFormat = document.getElementById('scoringFormat').value;
+            const draftPosition = document.getElementById('draftPosition').value;
+            
+            const selectedDraftData = draftData[leagueSize][scoringFormat][draftPosition];
+            document.getElementById('subheading').innerText = `${leagueSize}-Team Superflex • ${scoringFormat}`;
+            document.getElementById('strategy-intro').innerText = selectedDraftData.strategyIntro;
+            document.getElementById('principles-list').innerHTML = selectedDraftData.principles.map(p => `<li>${p}</li>`).join('');
+            renderChart(leagueSize, scoringFormat, draftPosition);
+            renderGuide(leagueSize, scoringFormat, draftPosition);
+            renderWatchlist(leagueSize, scoringFormat, draftPosition);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const leagueSizeSelect = document.getElementById('leagueSize');
+            const draftPositionSelect = document.getElementById('draftPosition');
+            const scoringFormatSelect = document.getElementById('scoringFormat');
+
+            leagueSizeSelect.addEventListener('change', updateUI);
+            draftPositionSelect.addEventListener('change', updateUI);
+            scoringFormatSelect.addEventListener('change', updateUI);
+
+            setupNavigation();
+            setupFiltering();
+            setupCardInteraction();
+            updateUI();
+        });
+    </script>
+</body>
+</html>
